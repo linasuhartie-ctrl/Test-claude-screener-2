@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>GPR Strict Screener - Bybit Perp</title>
+<style>
+:root{
+  --bg:#0c1522; --panel:#13202f; --panel2:#182a3d; --line:#233549; --text:#e8eef5; --muted:#8497ab;
+  --long:#2fbf8a; --short:#f0556a; --amber:#f2b84b; --blue:#5aa9ff;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px)}
+header{padding:16px 16px 8px}
+h1{font-size:20px;margin:0 0 2px;font-weight:700;letter-spacing:-.01em}
+header p{margin:0;color:var(--muted);font-size:13px}
+main{padding:0 12px}
+details{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:8px 0}
+summary{padding:12px 14px;font-weight:600;cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";float:right;color:var(--muted)}
+details[open] summary::after{content:"−"}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 14px}
+.grid .full{grid-column:1/-1}
+label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:3px}
+input[type=text],input[type=number],select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:9px 10px;font:inherit;min-height:40px}
+.chk{display:flex;align-items:center;gap:8px;color:var(--text);font-size:14px;margin:0;min-height:40px}
+.chk input{width:20px;height:20px;accent-color:var(--amber)}
+button{font:inherit;border:0;border-radius:10px;min-height:46px;padding:0 16px;font-weight:700;cursor:pointer}
+#scan{width:100%;background:var(--amber);color:#201400;margin:6px 0}
+#scan:disabled{opacity:.55}
+.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line);min-height:40px;font-weight:600}
+#status{font-size:13.5px;color:var(--muted);min-height:20px;margin:4px 2px;white-space:pre-wrap;word-break:break-word}
+#status.err{color:var(--short)}
+progress{width:100%;height:6px;display:none;accent-color:var(--amber)}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.chip b{display:block;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
+.chip span{font-size:12px;color:var(--muted)}
+.chip.l b{color:var(--long)} .chip.s b{color:var(--short)}
+.tabs{display:flex;gap:6px;margin:12px 0 8px;overflow-x:auto}
+.tabs button{flex:1;min-width:max-content;background:var(--panel);color:var(--muted);border:1px solid var(--line);min-height:42px;font-weight:600}
+.tabs button.on{background:var(--panel2);color:var(--text);border-color:var(--amber)}
+.note{font-size:12.5px;color:var(--muted);margin:2px 2px 8px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;width:max-content;min-width:100%;font-variant-numeric:tabular-nums;font-size:13.5px}
+th,td{padding:9px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600;font-size:12.5px}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);font-weight:700;z-index:1}
+th:first-child{background:var(--panel2);z-index:2}
+tr:last-child td{border-bottom:0}
+tbody tr{cursor:pointer}
+tbody tr:active td{background:var(--panel2)}
+td.g{color:var(--long);font-weight:600} td.r{color:var(--short);font-weight:600} td.m{color:var(--muted)}
+td:first-child.bl{box-shadow:inset 3px 0 var(--long)} td:first-child.br{box-shadow:inset 3px 0 var(--short)}
+.empty{padding:22px 14px;color:var(--muted);text-align:center}
+.row2{display:flex;gap:8px;margin:10px 0}
+.row2 button{flex:1}
+#modal{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:10;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+#modal.on{display:flex}
+#mhead{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);gap:10px}
+#mhead b{font-size:17px}
+#mhead small{color:var(--muted)}
+#cv{flex:1;width:100%;min-height:0;touch-action:none}
+#minfo{padding:10px 14px;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
+.hint{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:10px 12px;margin:8px 0;font-size:13.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>GPR Strict Screener</h1>
+  <p>Bybit USDT perpetual. Data diambil langsung dari browser kamu, jadi memakai IP internetmu sendiri.</p>
+</header>
+<main>
+  <details id="settings" open>
+    <summary>Pengaturan scan</summary>
+    <div class="grid">
+      <div><label for="tf">Timeframe</label>
+        <select id="tf"><option value="5">5m</option><option value="15" selected>15m</option><option value="30">30m</option>
+        <option value="60">1h</option><option value="120">2h</option><option value="240">4h</option></select></div>
+      <div><label for="top">Jumlah simbol (turnover tertinggi)</label><input id="top" type="number" inputmode="numeric" value="100" min="10" max="300"></div>
+      <div><label for="minturn">Min turnover 24h (juta USDT)</label><input id="minturn" type="number" inputmode="decimal" value="5" min="0"></div>
+      <div><label for="conc">Request paralel</label><input id="conc" type="number" inputmode="numeric" value="6" min="1" max="10"></div>
+      <div class="full"><label for="syms">Simbol tertentu (opsional, pisahkan koma)</label><input id="syms" type="text" placeholder="BTCUSDT, ETHUSDT" autocapitalize="characters" autocorrect="off"></div>
+      <div><label for="strict">Minimum Signal Score</label><input id="strict" type="number" inputmode="numeric" value="80" min="50" max="100"></div>
+      <div><label for="slatr">Stop loss (x ATR)</label><input id="slatr" type="number" inputmode="decimal" value="1.5" step="0.1"></div>
+      <div><label for="tp1">TP1 (RR)</label><input id="tp1" type="number" inputmode="decimal" value="1" step="0.1"></div>
+      <div><label for="tp2">TP2 (RR)</label><input id="tp2" type="number" inputmode="decimal" value="2" step="0.1"></div>
+      <div><label for="tp3">TP3 (RR)</label><input id="tp3" type="number" inputmode="decimal" value="3" step="0.1"></div>
+      <div></div>
+      <label class="chk"><input id="usemtf" type="checkbox" checked>Wajib selaras MTF</label>
+      <label class="chk"><input id="gpr" type="checkbox" checked>GPR advisory</label>
+      <label class="chk"><input id="tok" type="checkbox" checked>Token engine</label>
+      <div></div>
+      <div class="full"><label for="base">Domain API Bybit</label>
+        <select id="base"><option>https://api.bybit.com</option><option>https://api.bytick.com</option></select></div>
+      <div class="full"><label for="proxy">Proxy CORS (kosongkan kecuali diperlukan)</label>
+        <input id="proxy" type="text" placeholder="https://proxy-kamu/?url={url}" autocapitalize="none" autocorrect="off"></div>
+    </div>
+  </details>
+  <button id="scan">Scan sekarang</button>
+  <button class="ghost" id="diag" style="width:100%;margin:2px 0 4px">Tes koneksi ke Bybit</button>
+  <progress id="prog" value="0" max="1"></progress>
+  <div id="status"></div>
+
+  <div id="result" style="display:none">
+    <div class="chips" id="chips"></div>
+    <details>
+      <summary>Filter tampilan</summary>
+      <div class="grid">
+        <div><label for="fage">Sinyal baru: umur ≤ (bar)</label><input id="fage" type="number" inputmode="numeric" value="3" min="0"></div>
+        <div><label for="fch">CHoCH baru: umur ≤ (bar)</label><input id="fch" type="number" inputmode="numeric" value="3" min="0"></div>
+        <div><label for="fdir">Arah CHoCH</label><select id="fdir"><option value="both">Semua</option><option value="BULL">Bull (long)</option><option value="BEAR">Bear (short)</option></select></div>
+        <div><label for="fscore">Tab skor: minimal skor</label><input id="fscore" type="number" inputmode="numeric" value="60" min="0" max="100"></div>
+      </div>
+    </details>
+    <div class="tabs" id="tabs">
+      <button data-t="sig" class="on">Sinyal dan trade</button>
+      <button data-t="choch">CHoCH</button>
+      <button data-t="score">Skor</button>
+    </div>
+    <div class="note" id="note"></div>
+    <div id="tbl"></div>
+    <div class="row2"><button class="ghost" id="csv">Download CSV</button></div>
+  </div>
+</main>
+
+<div id="modal">
+  <div id="mhead"><div><b id="mtitle"></b> <small id="msub"></small></div><button class="ghost" id="mclose">Tutup</button></div>
+  <canvas id="cv"></canvas>
+  <div id="minfo"></div>
+</div>
+
+<script>
+// ============================ CORE START ============================
+// Port dari Pine Script v6 "GPR FUTURES INTELLIGENCE PRO V2.12 STRICT"
+const DEFAULT_CFG = {
+  gprEnabled:true, gprTrain:40, gprHorizon:12, gprKernel:1.0, gprNoise:0.15,
+  tokenEnabled:true, tokenLen:7, pumpEnabled:true, pumpVolMult:2.0, pumpMovePct:3.0,
+  emaFast:20, emaMid:50, emaSlow:200, rsiLen:14, atrLen:14, volLen:20,
+  strictScore:80, useMtf:true, pivotLen:5, structureMem:10, pullbackMem:5, maxDivGap:30,
+  slAtr:1.5, tp1:1.0, tp2:2.0, tp3:3.0
+};
+const TF_SECONDS = {"1":60,"3":180,"5":300,"15":900,"30":1800,"60":3600,"120":7200,"240":14400};
+function mtfSet(tf){
+  const s = TF_SECONDS[tf];
+  if (s <= 300) return ["15","60","240","D"];
+  if (s <= 900) return ["60","240","D","W"];
+  if (s <= 3600) return ["240","D","W","M"];
+  return ["D","W","M",null];           // 2H/4H: tf4 = 3M tidak tersedia di Bybit
+}
+function nanArr(n){ return new Float64Array(n).fill(NaN); }
+function ema(x, n){
+  const a = 2/(n+1), o = new Float64Array(x.length);
+  o[0] = x[0];
+  for (let i=1;i<x.length;i++) o[i] = a*x[i] + (1-a)*o[i-1];
+  return o;
+}
+function rma(x, n){
+  const L = x.length, o = nanArr(L);
+  let s0 = -1;
+  for (let i=0;i<L;i++) if (!isNaN(x[i])) { s0 = i; break; }
+  if (s0 < 0 || L - s0 < n) return o;
+  const s = s0 + n - 1;
+  let sum = 0;
+  for (let i=s0;i<=s;i++) sum += x[i];
+  o[s] = sum / n;
+  const a = 1/n;
+  for (let i=s+1;i<L;i++) o[i] = a*x[i] + (1-a)*o[i-1];
+  return o;
+}
+function rsiCalc(c, n){
+  const L = c.length, up = nanArr(L), dn = nanArr(L);
+  for (let i=1;i<L;i++){ const ch = c[i]-c[i-1]; up[i] = Math.max(ch,0); dn[i] = Math.max(-ch,0); }
+  const ru = rma(up,n), rd = rma(dn,n), o = nanArr(L);
+  for (let i=0;i<L;i++){
+    if (isNaN(ru[i]) || isNaN(rd[i])) continue;
+    o[i] = rd[i] === 0 ? 100 : 100 - 100/(1 + ru[i]/rd[i]);
+  }
+  return o;
+}
+function atrCalc(h, l, c, n){
+  const L = c.length, tr = new Float64Array(L);
+  tr[0] = h[0] - l[0];
+  for (let i=1;i<L;i++) tr[i] = Math.max(h[i]-l[i], Math.abs(h[i]-c[i-1]), Math.abs(l[i]-c[i-1]));
+  return rma(tr, n);
+}
+function smaCalc(x, n){
+  const L = x.length, o = nanArr(L);
+  let s = 0;
+  for (let i=0;i<L;i++){
+    s += x[i];
+    if (i >= n) s -= x[i-n];
+    if (i >= n-1) o[i] = s/n;
+  }
+  return o;
+}
+function pivots(x, L, hi){
+  const n = x.length, o = nanArr(n);
+  for (let i=2*L;i<n;i++){
+    let m = x[i-2*L], bad = false;
+    for (let j=i-2*L;j<=i;j++){
+      const v = x[j];
+      if (isNaN(v)) { bad = true; break; }
+      if (hi ? v > m : v < m) m = v;
+    }
+    if (bad) continue;
+    const cv = x[i-L];
+    if (cv === m) o[i] = cv;
+  }
+  return o;
+}
+function barssince(b){
+  const o = nanArr(b.length);
+  let last = -1;
+  for (let i=0;i<b.length;i++){ if (b[i]) last = i; if (last >= 0) o[i] = i - last; }
+  return o;
+}
+function shiftArr(a, k){
+  const o = nanArr(a.length);
+  for (let i=k;i<a.length;i++) o[i] = a[i-k];
+  return o;
+}
+// bull[1]/bear[1] dari EMA20/EMA50 HTF (candle HTF terakhir yang sudah close)
+function mtfFlags(ts, htf){
+  const n = ts.length, bull = new Uint8Array(n), bear = new Uint8Array(n);
+  if (!htf || htf.ts.length < 3) return [bull, bear];
+  const c = htf.close, m = c.length, e20 = ema(c,20), e50 = ema(c,50);
+  const bp = new Uint8Array(m), sp = new Uint8Array(m);
+  for (let i=1;i<m;i++){
+    bp[i] = (c[i-1] > e20[i-1] && e20[i-1] > e50[i-1]) ? 1 : 0;
+    sp[i] = (c[i-1] < e20[i-1] && e20[i-1] < e50[i-1]) ? 1 : 0;
+  }
+  let j = -1;
+  for (let i=0;i<n;i++){
+    while (j+1 < m && htf.ts[j+1] <= ts[i]) j++;
+    if (j >= 0){ bull[i] = bp[j]; bear[i] = sp[j]; }
+  }
+  return [bull, bear];
+}
+// GPR advisory (kernel Matern 3/2, dinormalisasi ATR)
+function gprSeries(close, atr, cfg){
+  const n = close.length, T = cfg.gprTrain;
+  const fc = nanArr(n), pup = new Float64Array(n).fill(0.5);
+  if (!cfg.gprEnabled || n <= T + 2) return {fc, pup};
+  const vs = new Float64Array(n), feat = nanArr(n), tgt = nanArr(n);
+  for (let i=0;i<n;i++) vs[i] = Math.max(atr[i]/close[i], 1e-6);
+  const lr = nanArr(n);
+  for (let i=1;i<n;i++) lr[i] = Math.log(close[i]/close[i-1]);
+  for (let i=1;i<n;i++) feat[i] = lr[i]/vs[i];
+  for (let i=0;i<n-1;i++) tgt[i] = lr[i+1]/vs[i];
+  const s3 = Math.sqrt(3);
+  for (let t=T;t<n;t++){
+    if (!(t > T + cfg.atrLen + 5)) continue;
+    const cur = feat[t];
+    let ws = 0, wsum = 0, wsq = 0;
+    for (let j=t-T;j<t;j++){
+      const rt = s3 * Math.abs(cur - feat[j]) / cfg.gprKernel;
+      const w = (1 + rt) * Math.exp(-rt);
+      ws += w; wsum += w*tgt[j]; wsq += w*tgt[j]*tgt[j];
+    }
+    const m = ws > 0 ? wsum/ws : NaN;
+    const variance = ws > 0 ? Math.max(wsq/ws - m*m, 0) : NaN;
+    const sg = Math.sqrt(variance + cfg.gprNoise*cfg.gprNoise);
+    if (!isFinite(m) || !isFinite(sg)) continue;
+    fc[t] = (Math.exp(m*vs[t]*cfg.gprHorizon) - 1) * 100;
+    const z = sg > 0 ? Math.max(-10, Math.min(10, m/sg)) : 0;
+    pup[t] = 1/(1 + Math.exp(-2*z));
+  }
+  return {fc, pup};
+}
+
+// Analisa satu simbol (semua bar -> kondisi bar terakhir yang sudah close)
+function analyze(df, htfs, tick, cfg){
+  const o = df.open, h = df.high, l = df.low, c = df.close, v = df.volume, ts = df.ts, n = c.length;
+  const ef = ema(c,cfg.emaFast), em = ema(c,cfg.emaMid), es = ema(c,cfg.emaSlow);
+  const rsi = rsiCalc(c,cfg.rsiLen), atr = atrCalc(h,l,c,cfg.atrLen), volma = smaCalc(v,cfg.volLen);
+  const e12 = ema(c,12), e26 = ema(c,26), macd = new Float64Array(n);
+  for (let i=0;i<n;i++) macd[i] = e12[i]-e26[i];
+  const msig = ema(macd,9);
+
+  const trendBull = new Uint8Array(n), trendBear = new Uint8Array(n), momBull = new Uint8Array(n), momBear = new Uint8Array(n);
+  const volBull = new Uint8Array(n), volBear = new Uint8Array(n), vdp = new Float64Array(n);
+  for (let i=0;i<n;i++){
+    trendBull[i] = (c[i]>ef[i] && ef[i]>em[i] && em[i]>es[i]) ? 1 : 0;
+    trendBear[i] = (c[i]<ef[i] && ef[i]<em[i] && em[i]<es[i]) ? 1 : 0;
+    const hist = macd[i]-msig[i];
+    momBull[i] = (rsi[i]>50 && hist>0) ? 1 : 0;
+    momBear[i] = (rsi[i]<50 && hist<0) ? 1 : 0;
+    volBull[i] = (v[i]>volma[i] && c[i]>o[i]) ? 1 : 0;
+    volBear[i] = (v[i]>volma[i] && c[i]<o[i]) ? 1 : 0;
+    vdp[i] = v[i]*(c[i]-o[i]) / Math.max(h[i]-l[i], tick);
+  }
+
+  // MTF
+  const fl = htfs.map(x => mtfFlags(ts, x));
+  const bullCnt = new Uint8Array(n), bearCnt = new Uint8Array(n);
+  for (const [b, s] of fl) for (let i=0;i<n;i++){ bullCnt[i] += b[i]; bearCnt[i] += s[i]; }
+  const mtfBull = new Uint8Array(n), mtfBear = new Uint8Array(n);
+  for (let i=0;i<n;i++){ mtfBull[i] = bullCnt[i]>=3 ? 1:0; mtfBear[i] = bearCnt[i]>=3 ? 1:0; }
+
+  // Struktur pasar
+  const L = cfg.pivotLen, ph = pivots(h,L,true), pl = pivots(l,L,false);
+  const lsh = nanArr(n), lsl = nanArr(n);
+  let chh = NaN, cll = NaN;
+  for (let i=0;i<n;i++){
+    if (!isNaN(ph[i])) chh = ph[i];
+    if (!isNaN(pl[i])) cll = pl[i];
+    lsh[i] = chh; lsl[i] = cll;
+  }
+  const bullBos = new Uint8Array(n), bearBos = new Uint8Array(n), bslSweep = new Uint8Array(n), sslSweep = new Uint8Array(n);
+  for (let i=0;i<n;i++){
+    if (!isNaN(lsh[i])){
+      bullBos[i] = (i>0 && c[i]>lsh[i] && c[i-1]<=lsh[i-1]) ? 1 : 0;
+      bslSweep[i] = (h[i]>lsh[i] && c[i]<lsh[i]) ? 1 : 0;
+    }
+    if (!isNaN(lsl[i])){
+      bearBos[i] = (i>0 && c[i]<lsl[i] && c[i-1]>=lsl[i-1]) ? 1 : 0;
+      sslSweep[i] = (l[i]<lsl[i] && c[i]>lsl[i]) ? 1 : 0;
+    }
+  }
+  const bias = new Int8Array(n), bullChoch = new Uint8Array(n), bearChoch = new Uint8Array(n);
+  let b = 0;
+  for (let i=0;i<n;i++){
+    bullChoch[i] = (bullBos[i] && b === -1) ? 1 : 0;
+    bearChoch[i] = (bearBos[i] && b === 1) ? 1 : 0;
+    if (bullBos[i]) b = 1;
+    if (bearBos[i]) b = -1;
+    bias[i] = b;
+  }
+  const bsBull = barssince(bullBos), bsBear = barssince(bearBos), bsSsl = barssince(sslSweep), bsBsl = barssince(bslSweep);
+  const recBullStruct = [], recBearStruct = [], recSsl = [], recBsl = [];
+  for (let i=0;i<n;i++){
+    recBullStruct[i] = bsBull[i] <= cfg.structureMem; recBearStruct[i] = bsBear[i] <= cfg.structureMem;
+    recSsl[i] = bsSsl[i] <= cfg.structureMem; recBsl[i] = bsBsl[i] <= cfg.structureMem;
+  }
+
+  // Divergence RSI
+  const rph = pivots(rsi,L,true), rpl = pivots(rsi,L,false);
+  const bearDiv = new Uint8Array(n), bullDiv = new Uint8Array(n);
+  let pph = NaN, prh = NaN, pl_ = NaN, prl = NaN, phb = -1e9, plb = -1e9;
+  for (let i=0;i<n;i++){
+    if (!isNaN(ph[i]) && !isNaN(rph[i])){
+      const cb = i - L;
+      bearDiv[i] = (!isNaN(pph) && cb-phb <= cfg.maxDivGap && ph[i] > pph && rph[i] < prh) ? 1 : 0;
+      pph = ph[i]; prh = rph[i]; phb = cb;
+    }
+    if (!isNaN(pl[i]) && !isNaN(rpl[i])){
+      const cb = i - L;
+      bullDiv[i] = (!isNaN(pl_) && cb-plb <= cfg.maxDivGap && pl[i] < pl_ && rpl[i] > prl) ? 1 : 0;
+      pl_ = pl[i]; prl = rpl[i]; plb = cb;
+    }
+  }
+  const bsBullDiv = barssince(bullDiv), bsBearDiv = barssince(bearDiv);
+
+  // Pullback sequence
+  const longPb = new Uint8Array(n), shortPb = new Uint8Array(n);
+  for (let i=0;i<n;i++){
+    longPb[i] = (l[i]<=ef[i] && c[i]>=ef[i]*0.995 && v[i]<volma[i]) ? 1 : 0;
+    shortPb[i] = (h[i]>=ef[i] && c[i]<=ef[i]*1.005 && v[i]<volma[i]) ? 1 : 0;
+  }
+  const bsLpb = barssince(longPb), bsSpb = barssince(shortPb);
+
+  // Pump + Token
+  const trsi = rsiCalc(c, cfg.tokenLen);
+  const g = gprSeries(c, atr, cfg);
+
+  // Skor & setup per bar
+  const longScore = new Float64Array(n), shortScore = new Float64Array(n);
+  const longSetup = new Uint8Array(n), shortSetup = new Uint8Array(n);
+  const longSeqA = new Uint8Array(n), shortSeqA = new Uint8Array(n);
+  const tokScore = new Int16Array(n), gAdv = new Int8Array(n), pumpA = new Int8Array(n);
+  let mx = 20+10+10+10+10+5+5;
+  if (cfg.useMtf) mx += 15;
+  if (cfg.gprEnabled) mx += 10;
+  if (cfg.tokenEnabled) mx += 5;
+  for (let i=0;i<n;i++){
+    const recLpb = bsLpb[i] <= cfg.pullbackMem, recSpb = bsSpb[i] <= cfg.pullbackMem;
+    const longConf = c[i]>o[i] && c[i]>ef[i] && volBull[i];
+    const shortConf = c[i]<o[i] && c[i]<ef[i] && volBear[i];
+    const lseq = recBullStruct[i] && recLpb && bsBull[i] > bsLpb[i] && bsLpb[i] >= 1;
+    const sseq = recBearStruct[i] && recSpb && bsBear[i] > bsSpb[i] && bsSpb[i] >= 1;
+    longSeqA[i] = lseq ? 1 : 0; shortSeqA[i] = sseq ? 1 : 0;
+    const tokBull = cfg.tokenEnabled && trsi[i]>60 && c[i]>ef[i] && vdp[i]>0;
+    const tokBear = cfg.tokenEnabled && trsi[i]<40 && c[i]<ef[i] && vdp[i]<0;
+    tokScore[i] = tokBull ? 100 : tokBear ? 0 : 50;
+    const gb = g.pup[i] >= 0.60, gs = g.pup[i] <= 0.40;
+    gAdv[i] = gb ? 1 : gs ? -1 : 0;
+    const pchg = (i>0 && c[i-1] !== 0) ? (c[i]-c[i-1])/c[i-1]*100 : 0;
+    const pv = v[i] > volma[i]*cfg.pumpVolMult;
+    pumpA[i] = (cfg.pumpEnabled && pchg>=cfg.pumpMovePct && pv) ? 1 : (cfg.pumpEnabled && pchg<=-cfg.pumpMovePct && pv) ? -1 : 0;
+
+    let lr = 0, sr = 0;
+    if (trendBull[i]) lr += 20; if (trendBear[i]) sr += 20;
+    if (momBull[i]) lr += 10; if (momBear[i]) sr += 10;
+    if (recLpb) lr += 10; if (recSpb) sr += 10;
+    if (longConf) lr += 10; if (shortConf) sr += 10;
+    if (lseq) lr += 10; if (sseq) sr += 10;
+    if (cfg.useMtf){ if (mtfBull[i]) lr += 15; if (mtfBear[i]) sr += 15; }
+    if (cfg.gprEnabled){ if (gb) lr += 10; if (gs) sr += 10; }
+    if (recSsl[i]) lr += 5; if (recBsl[i]) sr += 5;
+    if (cfg.tokenEnabled){ if (tokBull) lr += 5; if (tokBear) sr += 5; }
+    if (bsBullDiv[i] <= cfg.maxDivGap) lr += 5; if (bsBearDiv[i] <= cfg.maxDivGap) sr += 5;
+    longScore[i] = lr/mx*100; shortScore[i] = sr/mx*100;
+
+    const lmtf = !cfg.useMtf || mtfBull[i], smtf = !cfg.useMtf || mtfBear[i];
+    longSetup[i] = (longScore[i] >= cfg.strictScore && trendBull[i] && momBull[i] && lseq && longConf && lmtf) ? 1 : 0;
+    shortSetup[i] = (shortScore[i] >= cfg.strictScore && trendBear[i] && momBear[i] && sseq && shortConf && smtf) ? 1 : 0;
+  }
+
+  // Trade level management (konservatif: SL dicek lebih dulu dalam satu candle)
+  const tp1 = cfg.tp1, tp2 = Math.max(cfg.tp2, tp1+0.1), tp3 = Math.max(cfg.tp3, tp2+0.1);
+  let d = 0, stage = 0, entry = NaN, sl = NaN, t1 = NaN, t2 = NaN, t3 = NaN;
+  let sig = null, lastEvent = "";
+  for (let i=0;i<n;i++){
+    let closed = false, ev = "";
+    if (d === 1){
+      if (l[i] <= sl){ ev = stage===0 ? "SL HIT" : "TRAIL SL"; closed = true; d = 0; stage = 0; }
+      else if (h[i] >= t3){ ev = "TP3"; closed = true; d = 0; stage = 0; }
+      else if (h[i] >= t2){ ev = stage<2 ? "TP2" : ""; stage = 2; sl = t1; }
+      else if (h[i] >= t1 && stage === 0){ ev = "TP1/BE"; stage = 1; sl = entry; }
+    } else if (d === -1){
+      if (h[i] >= sl){ ev = stage===0 ? "SL HIT" : "TRAIL SL"; closed = true; d = 0; stage = 0; }
+      else if (l[i] <= t3){ ev = "TP3"; closed = true; d = 0; stage = 0; }
+      else if (l[i] <= t2){ ev = stage<2 ? "TP2" : ""; stage = 2; sl = t1; }
+      else if (l[i] <= t1 && stage === 0){ ev = "TP1/BE"; stage = 1; sl = entry; }
+    }
+    if (ev) lastEvent = ev;
+    if (d === 0 && !closed && (longSetup[i] || shortSetup[i])){
+      const sgn = longSetup[i] ? 1 : -1;
+      d = sgn; stage = 0; entry = c[i];
+      sl = c[i] - sgn*atr[i]*cfg.slAtr;
+      const risk = Math.abs(entry - sl);
+      t1 = entry + sgn*risk*tp1; t2 = entry + sgn*risk*tp2; t3 = entry + sgn*risk*tp3;
+      sig = {dir:sgn, bar:i, entry, sl0:sl, t1, t2, t3};
+      lastEvent = "ENTRY";
+    }
+  }
+
+  const i = n-1;
+  const ab = barssince(bullChoch)[i], ar = barssince(bearChoch)[i];
+  let chAge = NaN, chDir = "-";
+  if (!isNaN(ab) && (isNaN(ar) || ab <= ar)){ chAge = ab; chDir = "BULL"; }
+  else if (!isNaN(ar)){ chAge = ar; chDir = "BEAR"; }
+  let chLvl = NaN;
+  if (chDir !== "-"){ const j = i - chAge; chLvl = chDir === "BULL" ? lsh[j] : lsl[j]; }
+
+  const out = {
+    price:c[i],
+    trend: trendBull[i] ? "BULL" : trendBear[i] ? "BEAR" : "SIDE",
+    struct: bias[i]===1 ? "BULL" : bias[i]===-1 ? "BEAR" : "-",
+    mtf: bullCnt[i] + "/" + bearCnt[i],
+    rsi: rsi[i], token: tokScore[i],
+    pump: pumpA[i]===1 ? "UP" : pumpA[i]===-1 ? "DOWN" : "-",
+    gpr: gAdv[i]===1 ? "BULL" : gAdv[i]===-1 ? "BEAR" : "NEUT",
+    gpr_fc: g.fc[i], l_score: longScore[i], s_score: shortScore[i],
+    seq: longSeqA[i] ? "L-READY" : shortSeqA[i] ? "S-READY" : "-",
+    liq: recBsl[i] ? "BSL" : recSsl[i] ? "SSL" : "-",
+    choch: chDir, choch_age: chAge, choch_lvl: chLvl,
+    signal:"-", age:NaN, state:"-", entry:NaN, sl:NaN, tp1:NaN, tp2:NaN, tp3:NaN
+  };
+  if (sig){
+    out.signal = sig.dir === 1 ? "LONG" : "SHORT";
+    out.age = i - sig.bar;
+    out.entry = sig.entry; out.tp1 = sig.t1; out.tp2 = sig.t2; out.tp3 = sig.t3;
+    if (d !== 0){ out.state = ["INIT SL","BE LOCKED","LVL1 LOCKED"][stage]; out.sl = sl; }
+    else { out.state = "CLOSED:" + lastEvent; out.sl = sig.sl0; }
+    out.sig_ts = ts[sig.bar];
+  }
+  return out;
+}
+// ============================= CORE END =============================
+
+// ============================ DATA (BYBIT) ===========================
+const S = { base:"https://api.bybit.com", proxy:"", results:[], tf:"15", cfg:null, time:"", tab:"sig" };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function api(path, params, tries = 4){
+  let url = S.base + path + "?" + new URLSearchParams(params).toString();
+  if (S.proxy) url = S.proxy.includes("{url}") ? S.proxy.replace("{url}", encodeURIComponent(url)) : S.proxy + url;
+  let err;
+  for (let k=0;k<tries;k++){
+    try{
+      const r = await fetch(url);
+      if (r.status === 403) throw Object.assign(new Error("HTTP 403: akses ke Bybit diblokir dari jaringan/negara ini"), {fatal:true});
+      if (r.status === 429){ await sleep(1500*(k+1)); continue; }
+      const j = await r.json();
+      if (j.retCode === 0) return j.result;
+      if (j.retCode === 10006 || j.retCode === 10018){ await sleep(1000*(k+1)); continue; }
+      throw Object.assign(new Error(path + ": " + j.retCode + " " + j.retMsg), {fatal:true});
+    } catch(e){
+      err = e;
+      if (e.fatal) throw e;
+      await sleep(400*(k+1));
+    }
+  }
+  throw friendlyError(err);
+}
+function friendlyError(e){
+  const m = (e && e.message) || String(e || "");
+  if (e && e.fatal) return e;
+  if (/load failed|failed to fetch|networkerror|network request failed|typeerror/i.test(m) || e instanceof TypeError)
+    return new Error("Gagal terhubung ke Bybit (" + m + "). Tekan 'Tes koneksi ke Bybit' untuk mencari penyebabnya.");
+  return e instanceof Error ? e : new Error(m || "request gagal");
+}
+async function klines(symbol, interval, limit){
+  const res = await api("/v5/market/kline", {category:"linear", symbol, interval, limit});
+  const rows = res.list;
+  if (!rows || !rows.length) return null;
+  const m = rows.length, df = {ts:new Float64Array(m), open:new Float64Array(m), high:new Float64Array(m),
+    low:new Float64Array(m), close:new Float64Array(m), volume:new Float64Array(m)};
+  for (let i=0;i<m;i++){           // Bybit: terbaru dulu -> balik jadi ascending
+    const r = rows[m-1-i];
+    df.ts[i] = +r[0]; df.open[i] = +r[1]; df.high[i] = +r[2]; df.low[i] = +r[3]; df.close[i] = +r[4]; df.volume[i] = +r[5];
+  }
+  return df;
+}
+function dropLast(df){
+  const n = df.ts.length - 1, o = {};
+  for (const k in df) o[k] = df[k].slice(0, n);
+  return o;
+}
+async function universe(minTurn, top, explicit){
+  const inst = {};
+  let cursor = "";
+  do {
+    const p = {category:"linear", limit:1000};
+    if (cursor) p.cursor = cursor;
+    const res = await api("/v5/market/instruments-info", p);
+    for (const i of res.list){
+      if (i.contractType === "LinearPerpetual" && i.status === "Trading" && i.quoteCoin === "USDT")
+        inst[i.symbol] = parseFloat(i.priceFilter.tickSize);
+    }
+    cursor = res.nextPageCursor || "";
+  } while (cursor);
+  const t = await api("/v5/market/tickers", {category:"linear"});
+  let rows = [];
+  for (const x of t.list){
+    if (!(x.symbol in inst)) continue;
+    rows.push({symbol:x.symbol, tick:inst[x.symbol], chg24:parseFloat(x.price24hPcnt||0)*100,
+      turn:parseFloat(x.turnover24h||0), fund:parseFloat(x.fundingRate||0)*100});
+  }
+  if (explicit.length) rows = rows.filter(r => explicit.includes(r.symbol));
+  else rows = rows.filter(r => r.turn >= minTurn).sort((a,b) => b.turn-a.turn).slice(0, top);
+  return rows;
+}
+async function scanSymbol(row, tf, cfg){
+  const main = await klines(row.symbol, tf, 1000);
+  const minBars = Math.max(cfg.emaSlow + 50, 260);
+  if (!main || main.ts.length < minBars + 1) return null;
+  const htfs = [];
+  for (const itv of mtfSet(tf)) htfs.push(itv && cfg.useMtf ? await klines(row.symbol, itv, 250) : null);
+  const r = analyze(dropLast(main), htfs, row.tick, cfg);
+  r.symbol = row.symbol; r.chg24 = row.chg24; r.turn = row.turn/1e6; r.fund = row.fund;
+  return r;
+}
+
+// ================================ UI =================================
+const $ = id => document.getElementById(id);
+const FIELDS = ["tf","top","minturn","conc","syms","strict","slatr","tp1","tp2","tp3","base","proxy","fage","fch","fdir","fscore"];
+const CHECKS = ["usemtf","gpr","tok"];
+function saveSettings(){
+  try{
+    const o = {};
+    FIELDS.forEach(k => o[k] = $(k).value);
+    CHECKS.forEach(k => o[k] = $(k).checked);
+    localStorage.setItem("gprScreener", JSON.stringify(o));
+  }catch(e){}
+}
+function loadSettings(){
+  try{
+    const o = JSON.parse(localStorage.getItem("gprScreener") || "{}");
+    FIELDS.forEach(k => { if (k in o) $(k).value = o[k]; });
+    CHECKS.forEach(k => { if (k in o) $(k).checked = o[k]; });
+  }catch(e){}
+}
+function readCfg(){
+  return Object.assign({}, DEFAULT_CFG, {
+    strictScore:+$("strict").value || 80, useMtf:$("usemtf").checked, gprEnabled:$("gpr").checked,
+    tokenEnabled:$("tok").checked, slAtr:+$("slatr").value || 1.5, tp1:+$("tp1").value || 1,
+    tp2:+$("tp2").value || 2, tp3:+$("tp3").value || 3
+  });
+}
+function setStatus(msg, err){ const s = $("status"); s.textContent = msg; s.className = err ? "err" : ""; }
+
+async function runScan(){
+  saveSettings();
+  S.base = $("base").value; S.proxy = $("proxy").value.trim();
+  const tf = $("tf").value, cfg = readCfg();
+  const explicit = $("syms").value.split(/[,\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+  const conc = Math.max(1, Math.min(10, +$("conc").value || 6));
+  const btn = $("scan"), prog = $("prog");
+  btn.disabled = true; prog.style.display = "block"; prog.value = 0;
+  $("settings").open = false;
+  try{
+    setStatus("Mengambil daftar kontrak...");
+    const uni = await universe((+$("minturn").value || 0)*1e6, +$("top").value || 100, explicit);
+    if (!uni.length) throw new Error("Tidak ada kontrak yang cocok dengan filter.");
+    prog.max = uni.length;
+    const results = []; let idx = 0, done = 0, fails = 0, lastErr = "";
+    async function worker(){
+      while (idx < uni.length){
+        const r = uni[idx++];
+        try{
+          const x = await scanSymbol(r, tf, cfg);
+          if (x) results.push(x); else fails++;
+        }catch(e){ fails++; lastErr = e.message || String(e); if (e.fatal && !results.length && fails >= 3){ idx = uni.length; } }
+        done++; prog.value = done;
+        setStatus("Scan " + done + "/" + uni.length + "...");
+        if (done % 5 === 0) await sleep(0);
+      }
+    }
+    await Promise.all(Array.from({length:conc}, worker));
+    if (!results.length) throw new Error(lastErr || "Tidak ada data yang berhasil diambil.");
+    S.results = results; S.tf = tf; S.cfg = cfg;
+    S.time = new Date().toLocaleString("id-ID", {timeZone:"Asia/Jakarta", hour12:false}) + " WIB";
+    const tfName = {5:"5m",15:"15m",30:"30m",60:"1h",120:"2h",240:"4h"}[tf];
+    setStatus("TF " + tfName + ", " + results.length + " simbol terscan (" + fails + " di-skip), " + S.time + ". Analisa pada candle yang sudah close." +
+      (+tf >= 120 && cfg.useMtf ? " Pada 2H/4H, MTF 3M tidak tersedia di Bybit sehingga syarat MTF menjadi 3 dari 3 TF." : ""));
+    $("result").style.display = "block";
+    render();
+  }catch(e){
+    setStatus(e.message || String(e), true);
+  }finally{
+    btn.disabled = false; prog.style.display = "none";
+  }
+}
+
+// ---------- tampilan
+const fmtP = x => {
+  if (x == null || isNaN(x)) return "";
+  const a = Math.abs(x);
+  return (a !== 0 && a < 1e-4) ? x.toPrecision(6) : String(Number(x.toPrecision(6)));
+};
+const f0 = x => isNaN(x) ? "" : x.toFixed(0);
+const ageT = a => isNaN(a) ? "" : " -" + a + "b";
+const ACTIVE = ["INIT SL","BE LOCKED","LVL1 LOCKED"];
+
+function prepare(){
+  const maxAge = +$("fage").value || 0, chAge = +$("fch").value || 0, dir = $("fdir").value;
+  return S.results.map(r0 => {
+    const r = Object.assign({}, r0);
+    r.best = Math.max(r.l_score, r.s_score);
+    r.bias = r.l_score >= r.s_score ? "LONG" : "SHORT";
+    const fresh = r.signal !== "-" && r.age <= maxAge;
+    const active = ACTIVE.includes(r.state);
+    if (r.signal !== "-" && !fresh && !active){
+      r.signal = "-"; r.state = "-"; r.age = NaN; r.entry = r.sl = r.tp1 = r.tp2 = r.tp3 = NaN;
+    }
+    const chAny = r.choch !== "-" && r.choch_age <= chAge;
+    if (!chAny){ r.choch = "-"; r.choch_age = NaN; r.choch_lvl = NaN; }
+    r.isFresh = fresh; r.isSig = fresh || active;
+    r.isCh = chAny && (dir === "both" || r.choch === dir);
+    return r;
+  });
+}
+const cls = v => /^(LONG|BULL)/.test(v) ? "g" : /^(SHORT|BEAR)/.test(v) ? "r" : "";
+const COLS = {
+  sig: [["Symbol",r=>r.symbol,r=>r.signal==="LONG"?"bl":r.signal==="SHORT"?"br":""],["Sinyal",r=>r.signal+ageT(r.age),r=>cls(r.signal)],["State",r=>r.state,()=>"m"],
+    ["Entry",r=>fmtP(r.entry)],["SL",r=>fmtP(r.sl)],["TP1",r=>fmtP(r.tp1)],["TP2",r=>fmtP(r.tp2)],["TP3",r=>fmtP(r.tp3)],
+    ["L/S",r=>f0(r.l_score)+"/"+f0(r.s_score)],["Trend",r=>r.trend,r=>cls(r.trend)],["MTF",r=>r.mtf],["GPR",r=>r.gpr,r=>cls(r.gpr)],
+    ["GPR%",r=>isNaN(r.gpr_fc)?"":(r.gpr_fc>=0?"+":"")+r.gpr_fc.toFixed(2)],["Pump",r=>r.pump],["Harga",r=>fmtP(r.price)],["24h%",r=>(r.chg24>=0?"+":"")+r.chg24.toFixed(1),r=>r.chg24>=0?"g":"r"]],
+  choch: [["Symbol",r=>r.symbol,r=>r.choch==="BULL"?"bl":r.choch==="BEAR"?"br":""],["Arah",r=>r.choch==="BULL"?"LONG":r.choch==="BEAR"?"SHORT":"",r=>r.choch==="BULL"?"g":r.choch==="BEAR"?"r":""],["CHoCH",r=>r.choch+ageT(r.choch_age),r=>cls(r.choch)],["Level",r=>fmtP(r.choch_lvl)],["Liq",r=>r.liq],
+    ["Trend",r=>r.trend,r=>cls(r.trend)],["Struktur",r=>r.struct,r=>cls(r.struct)],["MTF",r=>r.mtf],["RSI",r=>f0(r.rsi)],["GPR",r=>r.gpr,r=>cls(r.gpr)],
+    ["L/S",r=>f0(r.l_score)+"/"+f0(r.s_score)],["Seq",r=>r.seq],["Pump",r=>r.pump],["Harga",r=>fmtP(r.price)],["24h%",r=>(r.chg24>=0?"+":"")+r.chg24.toFixed(1),r=>r.chg24>=0?"g":"r"]],
+  score: [["Symbol",r=>r.symbol,r=>r.bias==="LONG"?"bl":"br"],["Bias",r=>r.bias,r=>cls(r.bias)],["Skor",r=>f0(r.best)],["L/S",r=>f0(r.l_score)+"/"+f0(r.s_score)],
+    ["Trend",r=>r.trend,r=>cls(r.trend)],["Struktur",r=>r.struct,r=>cls(r.struct)],["MTF",r=>r.mtf],["Seq",r=>r.seq],["Liq",r=>r.liq],["RSI",r=>f0(r.rsi)],
+    ["Token",r=>r.token],["GPR",r=>r.gpr,r=>cls(r.gpr)],["Pump",r=>r.pump],["Harga",r=>fmtP(r.price)],["24h%",r=>(r.chg24>=0?"+":"")+r.chg24.toFixed(1),r=>r.chg24>=0?"g":"r"]]
+};
+let VIEW = [];
+function table(tab, rows){
+  const cols = COLS[tab];
+  if (!rows.length) return '<div class="wrap"><div class="empty">Belum ada yang memenuhi filter ini.</div></div>';
+  let h = "<div class='wrap'><table><thead><tr>" + cols.map(c => "<th>" + c[0] + "</th>").join("") + "</tr></thead><tbody>";
+  rows.forEach((r, k) => {
+    h += "<tr data-k='" + k + "'>" + cols.map(c => {
+      const cl = c[2] ? c[2](r) : "";
+      return "<td" + (cl ? " class='" + cl + "'" : "") + ">" + c[1](r) + "</td>";
+    }).join("") + "</tr>";
+  });
+  return h + "</tbody></table></div>";
+}
+function render(){
+  if (!S.results.length) return;
+  const all = prepare();
+  const cnt = f => all.filter(f).length;
+  $("chips").innerHTML = [
+    ["l", cnt(r => r.signal === "LONG" && r.isFresh), "LONG baru"],
+    ["s", cnt(r => r.signal === "SHORT" && r.isFresh), "SHORT baru"],
+    ["", cnt(r => ACTIVE.includes(r.state)), "Trade aktif"],
+    ["l", cnt(r => r.isCh && r.choch === "BULL"), "CHoCH Bull"],
+    ["s", cnt(r => r.isCh && r.choch === "BEAR"), "CHoCH Bear"],
+    ["", cnt(r => r.pump !== "-"), "Pump"]
+  ].map(c => "<div class='chip " + c[0] + "'><b>" + c[1] + "</b><span>" + c[2] + "</span></div>").join("");
+  let rows;
+  if (S.tab === "sig"){
+    rows = all.filter(r => r.isSig).sort((a,b) => (a.age||0)-(b.age||0) || b.best-a.best);
+    $("note").textContent = "Sinyal STRICT yang baru muncul atau trade yang masih berjalan. Ketuk baris untuk melihat chart.";
+  } else if (S.tab === "choch"){
+    rows = all.filter(r => r.isCh).sort((a,b) => a.choch_age-b.choch_age || b.best-a.best);
+    $("note").textContent = "CHoCH Bull: BOS naik saat bias sebelumnya bearish (arah long). CHoCH Bear: BOS turun saat bias sebelumnya bullish (arah short). Ini filter struktur, bukan sinyal entry.";
+  } else {
+    const ms = +$("fscore").value || 0;
+    rows = all.filter(r => r.best >= ms).sort((a,b) => b.best-a.best);
+    $("note").textContent = "Simbol dengan skor L atau S tertinggi, walau belum memenuhi semua syarat sinyal.";
+  }
+  VIEW = rows;
+  $("tbl").innerHTML = table(S.tab, rows);
+}
+
+// ---------- chart
+function drawChart(cv, df, row){
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W*dpr; cv.height = H*dpr;
+  const ctx = cv.getContext("2d"); if (!ctx) return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle = "#0c1522"; ctx.fillRect(0,0,W,H);
+  const N = Math.min(120, df.ts.length), s0 = df.ts.length - N;
+  const e20 = ema(df.close,20), e50 = ema(df.close,50), e200 = ema(df.close,200);
+  const levels = [["Entry",row.entry,"#5aa9ff"],["SL",row.sl,"#f0556a"],["TP1",row.tp1,"#2fbf8a"],["TP2",row.tp2,"#2fbf8a"],["TP3",row.tp3,"#2fbf8a"],
+    ["CHoCH "+row.choch,row.choch_lvl,"#c084fc"]].filter(x => x[1] != null && !isNaN(x[1]));
+  let lo = Infinity, hi = -Infinity;
+  for (let i=s0;i<df.ts.length;i++){ lo = Math.min(lo, df.low[i]); hi = Math.max(hi, df.high[i]); }
+  levels.forEach(x => { lo = Math.min(lo, x[1]); hi = Math.max(hi, x[1]); });
+  const pad = (hi-lo)*0.06 || 1; lo -= pad; hi += pad;
+  const mL = 6, mR = 64, mT = 8, mB = 8, pw = W-mL-mR, ph = H-mT-mB;
+  const X = k => mL + (k+0.5)*pw/N, Y = p => mT + (hi-p)/(hi-lo)*ph;
+  ctx.strokeStyle = "#233549"; ctx.fillStyle = "#8497ab"; ctx.font = "11px -apple-system,sans-serif"; ctx.lineWidth = 1;
+  for (let g=0;g<=4;g++){
+    const p = lo + (hi-lo)*g/4, y = Y(p);
+    ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(W-mR,y); ctx.stroke();
+    ctx.fillText(fmtP(p), W-mR+4, y+4);
+  }
+  const bw = Math.max(1.5, pw/N*0.62);
+  for (let k=0;k<N;k++){
+    const i = s0+k, up = df.close[i] >= df.open[i], col = up ? "#2fbf8a" : "#f0556a";
+    ctx.strokeStyle = col; ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(X(k),Y(df.high[i])); ctx.lineTo(X(k),Y(df.low[i])); ctx.stroke();
+    const yo = Y(df.open[i]), yc = Y(df.close[i]);
+    ctx.fillRect(X(k)-bw/2, Math.min(yo,yc), bw, Math.max(1, Math.abs(yo-yc)));
+  }
+  [[e20,"#22d3ee"],[e50,"#f2b84b"],[e200,"#9aa8b8"]].forEach(([e,col]) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.beginPath();
+    for (let k=0;k<N;k++){ const y = Y(e[s0+k]); k ? ctx.lineTo(X(k),y) : ctx.moveTo(X(k),y); }
+    ctx.stroke();
+  });
+  ctx.lineWidth = 1; ctx.setLineDash([5,4]);
+  levels.forEach(([name,p,col]) => {
+    const y = Y(p); ctx.strokeStyle = col; ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(W-mR,y); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillText(name + " " + fmtP(p), Math.max(mL+2, W-mR-ctx.measureText(name + " " + fmtP(p)).width-4), y-3); ctx.setLineDash([5,4]);
+  });
+  ctx.setLineDash([]);
+}
+async function openChart(row){
+  $("modal").classList.add("on");
+  $("mtitle").textContent = row.symbol;
+  const tfName = {5:"5m",15:"15m",30:"30m",60:"1h",120:"2h",240:"4h"}[S.tf];
+  $("msub").textContent = tfName;
+  $("minfo").textContent = "Memuat chart...";
+  try{
+    const df = await klines(row.symbol, S.tf, 1000);
+    if (!df) throw new Error("Data kosong");
+    drawChart($("cv"), df, row);
+    const bits = [];
+    if (row.signal !== "-") bits.push(row.signal + ageT(row.age) + ", " + row.state);
+    if (row.choch !== "-") bits.push("CHoCH " + row.choch + ageT(row.choch_age));
+    bits.push("Skor L/S " + f0(row.l_score) + "/" + f0(row.s_score), "Trend " + row.trend, "MTF " + row.mtf, "GPR " + row.gpr);
+    $("minfo").textContent = bits.join(", ") + ". Garis: EMA20 biru muda, EMA50 kuning, EMA200 abu-abu.";
+  }catch(e){ $("minfo").textContent = "Gagal memuat chart: " + (e.message || e); }
+}
+
+// ---------- diagnosa koneksi
+async function diagnose(){
+  const out = [];
+  const origin = location.protocol === "file:" ? "file lokal (file://)" : location.protocol + "//" + location.host;
+  out.push("Halaman dibuka dari: " + origin);
+  if (location.protocol === "file:" || location.protocol === "about:" || location.protocol === "blob:" || !location.protocol)
+    out.push("Halaman ini dibuka sebagai file lokal. Viewer file di iPhone sering memblokir request jaringan. Buka lewat alamat https, misalnya GitHub Pages.");
+  setStatus("Menguji koneksi...");
+  for (const b of ["https://api.bybit.com", "https://api.bytick.com"]){
+    const url = b + "/v5/market/time";
+    let cors = "", net = "";
+    try{ const r = await fetch(url); cors = "bisa dibaca (HTTP " + r.status + ")"; }
+    catch(e){ cors = "gagal (" + ((e && e.message) || e) + ")"; }
+    try{ const r = await fetch(url, {mode:"no-cors"}); net = "jaringan tersambung" + (r.type ? " (" + r.type + ")" : ""); }
+    catch(e){ net = "jaringan gagal (" + ((e && e.message) || e) + ")"; }
+    out.push(b + "\n  akses browser: " + cors + "\n  tes jaringan: " + net);
+  }
+  out.push("Cara membaca: kalau 'akses browser' gagal tetapi 'jaringan tersambung', Bybit tidak mengizinkan akses langsung dari browser (CORS). Kalau HTTP 403, jaringan/negaramu diblokir Bybit. Kalau dua-duanya gagal, cek koneksi atau pemblokiran jaringan.");
+  setStatus(out.join("\n"));
+}
+
+// ---------- CSV
+function downloadCsv(){
+  if (!S.results.length) return;
+  const keys = ["symbol","price","chg24","turn","fund","trend","struct","mtf","rsi","token","pump","gpr","gpr_fc","l_score","s_score","seq","liq","choch","choch_age","choch_lvl","signal","age","state","entry","sl","tp1","tp2","tp3"];
+  const lines = [keys.join(",")].concat(prepare().map(r => keys.map(k => { const v = r[k]; return (typeof v === "number" && isNaN(v)) || v == null ? "" : v; }).join(",")));
+  const url = URL.createObjectURL(new Blob([lines.join("\n")], {type:"text/csv"}));
+  const a = document.createElement("a"); a.href = url; a.download = "gpr_screener.csv"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// ---------- event
+loadSettings();
+$("scan").addEventListener("click", runScan);
+$("csv").addEventListener("click", downloadCsv);
+$("diag").addEventListener("click", diagnose);
+$("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  S.tab = b.dataset.t;
+  [...$("tabs").children].forEach(x => x.classList.toggle("on", x === b));
+  render();
+});
+["fage","fch","fdir","fscore"].forEach(k => $(k).addEventListener("change", () => { saveSettings(); render(); }));
+$("tbl").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-k]"); if (!tr) return;
+  openChart(VIEW[+tr.dataset.k]);
+});
+$("mclose").addEventListener("click", () => $("modal").classList.remove("on"));
+window.addEventListener("resize", () => {});
+</script>
+</body>
+</html>
